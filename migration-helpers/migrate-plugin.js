@@ -22,24 +22,28 @@ async function migratePlugin(v3PluginPath, v4DestinationPath) {
 
   const exists = await fs.pathExists(v4Plugin);
   if (exists) {
-    console.log(`${v4Plugin} already exists`)
-    return
+    console.log(`${v4Plugin} already exists`);
+    return;
   }
 
   try {
     // Create plugin copy
     await fs.copy(resolve(v3PluginPath), v4Plugin);
+    console.log(`copied v3 plugin to ${v4Plugin}`);
 
-    // Create root strapi-admin and strapi-server
-    await fs.copy("./utils/strapi-admin.js", join(v4Plugin, `strapi-admin.js`));
-    await fs.copy(
-      "./utils/strapi-server.js",
-      join(v4Plugin, `strapi-server.js`)
-    );
+    // Create root strapi-admin
+    const strapiAdmin = join(v4Plugin, `strapi-admin.js`);
+    await fs.copy("./utils/strapi-admin.js", strapiAdmin);
+    console.log(`created ${strapiAdmin}`);
+
+    //Create root strapi-server
+    const strapiServer = join(v4Plugin, `strapi-server.js`);
+    await fs.copy("./utils/strapi-server.js", strapiServer);
+    console.log(`created ${strapiServer}`);
 
     // Move all server files to /src/server
     for (const directory of SERVER_DIRECTORIES) {
-      await moveToServer(v4Plugin, "/", directory);
+      await moveToServer(v4Plugin, ".", directory);
       // Create index file for directory
       await createDirectoryIndex(join(v4Plugin, "src", "server", directory));
     }
@@ -55,10 +59,11 @@ async function migratePlugin(v3PluginPath, v4DestinationPath) {
       join(v4Plugin, "admin", "src"),
       join(v4Plugin, "src", "admin")
     );
-    // Remove empty admin folder
+    // Remove old empty admin folder
     await fs.remove(join(v4Plugin, "admin"));
+    console.log(`finished migrating v3 plugin to v4 at ${v4Plugin}`);
   } catch (error) {
-    console.error(error);
+    console.error(error.message);
   }
 }
 
@@ -77,16 +82,11 @@ async function moveToServer(v4Plugin, originDir, destination) {
   const exists = await fs.pathExists(join(v4Plugin, originDir, destination));
   if (!exists) return;
 
-  try {
-    const origin = join(v4Plugin, originDir, destination);
-    const dest = join(v4Plugin, "src", "server", destination);
+  const origin = join(v4Plugin, originDir, destination);
+  const dest = join(v4Plugin, "src", "server", destination);
 
-    await fs.move(origin, dest);
-
-    console.log(`moving ${origin} to:\n`, dest);
-  } catch (error) {
-    console.error(error.message);
-  }
+  await fs.move(origin, dest);
+  console.log(`moved ${destination} to `, dest);
 }
 
 async function createServerIndex(serverDir) {
@@ -103,16 +103,14 @@ async function createServerIndex(serverDir) {
 async function createDirectoryIndex(dir) {
   const hasDir = await fs.pathExists(dir);
   if (!hasDir) return;
-  // get all files from the dir
+  
   const dirContent = await fs.readdir(dir);
-
   const indexPath = join(dir, "index.js");
-  // create index.js for dir
+
   await fs.copy(join(__dirname, "..", "utils", "module-exports.js"), indexPath);
 
-  // import all files to dir
   const filesToImport = dirContent.filter((file) => file.includes(".js"));
-
+  
   await importFilesToIndex(indexPath, filesToImport);
   await addModulesToExport(indexPath, filesToImport);
 }
@@ -190,18 +188,17 @@ const args = process.argv.slice(2);
 try {
   if (args.length === 0) {
     throw new Error(
-      "No arguments provided, please provide: <v3PluginPath> [v4DestinationPath]"
+      "error: No arguments provided, please provide: <v3PluginPath> [v4DestinationPath]"
     );
   }
 
   if (args.length > 2) {
     throw new Error(
-      "Too many arguments, please provide: <v3PluginPath> [v4DestinationPath]"
+      "error: Too many arguments, please provide: <v3PluginPath> [v4DestinationPath]"
     );
   }
 
   const [v3PluginPath, v4DestinationPath] = args;
-
   migratePlugin(v3PluginPath, v4DestinationPath);
 } catch (error) {
   console.error(error.message);
