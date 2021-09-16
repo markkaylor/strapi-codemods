@@ -7,6 +7,8 @@ const fs = require("fs-extra");
 const _ = require("lodash");
 var pluralize = require("pluralize");
 const { inspect } = require("util");
+const execa = require("execa");
+const jscodeshiftExecutable = require.resolve(".bin/jscodeshift");
 
 const normalizeName = _.kebabCase;
 
@@ -143,15 +145,27 @@ const updatePolicies = async (apiPath) => {
   }
 };
 
-const clean = async () => {
+const updateServices = async (apiPath) => {
+  const result = execa.sync(jscodeshiftExecutable, [
+    "-t",
+    join(__dirname, "..", "transforms", "use-named-exports-for-service.js"),
+    join(apiPath, "services"),
+  ]);
+
+  if (result.error) {
+    throw result.error;
+  }
+};
+
+const clean = () => {
   console.log("done");
 };
 
 const renameApiFolder = async (apiDirCopyPath) => {
   try {
-    await fs.rename(apiDirCopyPath, "api");
+    fs.renameSync(apiDirCopyPath, "api");
   } catch (error) {
-    console.error(error.message);
+    console.error("error:", error.message);
   }
 };
 
@@ -171,10 +185,11 @@ const updateApiFolderStructure = async () => {
     await updateContentTypes(apiPath);
     await updateRoutes(apiPath, apiName);
     await updatePolicies(apiPath);
+    await updateServices(apiPath);
   }
 
   clean();
-  await renameApiFolder(apiDirCopyPath);
+  renameApiFolder(apiDirCopyPath);
 };
 
 updateApiFolderStructure();
