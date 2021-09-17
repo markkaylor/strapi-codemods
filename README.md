@@ -7,6 +7,16 @@ This repo does two things:
 1. Provides a set of transform functions to be used when migrating a Strapi application from v3 to v4.  These are found in the `transforms` directory
 2. Provides a script, `migrate-plugin.js` , that takes a Strapi plugin and attempts to migrate the plugin by moving files and applying codemods where needed.
 
+## Migration helpers
+
+### update-api-folder-structure
+
+Navigate to the strapi project you want to migrate
+
+```bash
+node <path/to/strapi-codemods/migration-helpers/update-api-folder-structure>
+```
+
 ## Transforms
 
 You can install `jscodeshift` globally or use npx.  See jscodeshift docs for all available options: [https://github.com/facebook/jscodeshift](https://github.com/facebook/jscodeshift)

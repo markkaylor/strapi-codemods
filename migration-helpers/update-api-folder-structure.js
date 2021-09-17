@@ -172,14 +172,6 @@ const updatePolicies = async (apiPath) => {
 };
 
 /**
- * @description Runs a jscodeshift transform
- * @param {string} servicesDir Path to the services folder for the current api
- */
-const updateServices = (servicesDirPath) => {
-  runJsCodeshift(servicesDirPath, "use-arrow-function-for-service-export");
-};
-
-/**
  *
  * @description Recursively cleans a directory
  *
@@ -241,10 +233,11 @@ const updateApiFolderStructure = async () => {
     await updateContentTypes(apiPath);
     await updateRoutes(apiPath, apiName);
     await updatePolicies(apiPath);
-    updateServices(join(apiPath, "services"));
+    // Update services using jscodeshift transform
+    runJsCodeshift(join(apiDirCopyPath, "services"), "use-arrow-function-for-service-export");
   }
 
-  console.log(`migrated ${basename(strapiAppPath)}/api`);
+  console.log(`migrated ${basename(strapiAppPath)}/api to Strapi v4`);
   console.log(`to see changes: Run "git add . && git diff --cached"`);
   console.log('to revert: "git reset HEAD --hard && git clean -fd"');
   console.log('to accept: "git commit -am "migrate API to v4 structure""');
