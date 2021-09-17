@@ -1,4 +1,4 @@
-module.exports = function useNamedExportsForService(file, api) {
+module.exports = function useNamedExportsForServices(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
