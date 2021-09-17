@@ -216,7 +216,16 @@ const renameApiFolder = async (apiDirCopyPath, strapiAppPath) => {
 const updateApiFolderStructure = async () => {
   const strapiAppPath = resolve(process.cwd());
   const apiDirCopyPath = join(strapiAppPath, "api-copy");
-  await fs.copy(join(strapiAppPath, "api"), apiDirCopyPath);
+  try {
+    await fs.copy(join(strapiAppPath, "api"), apiDirCopyPath);
+  } catch (error) {
+    console.error(
+      `error: ${basename(
+        strapiAppPath
+      )}/api not found, are you sure this is a Strapi app?`
+    );
+    process.exit(1);
+  }
 
   const apiDirs = await getDirsAtPath(apiDirCopyPath);
 
