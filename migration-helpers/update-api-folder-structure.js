@@ -113,7 +113,7 @@ const updateRoutes = async (apiPath, apiName) => {
         !route.handler.includes("count") || !route.path.includes("count")
     );
 
-    // Recursively transform objects to strings
+    // Transform objects to strings
     const routesToString = inspect(
       { routes: updatedRoutes },
       { depth: Infinity }
@@ -198,7 +198,6 @@ const clean = async (dirs, baseDir) => {
       } else {
         // Otherwise get the directories of the current directory
         const currentDirs = await getDirsAtPath(currentDirPath);
-        // Recursively clean the directories
         await clean(currentDirs, currentDirPath);
       }
     } catch (error) {
@@ -210,7 +209,7 @@ const clean = async (dirs, baseDir) => {
 /**
  * @description Get's directory entries from a given path
  *
- * @param {*} path The path to the directory
+ * @param {string} path The path to the directory
  * @returns array of of directory entries
  */
 const getDirsAtPath = async (path) => {
@@ -230,7 +229,6 @@ const renameApiFolder = async (apiDirCopyPath, strapiAppPath) => {
 };
 
 const updateApiFolderStructure = async () => {
-  // Make a copy of the api folder => api-copy
   const strapiAppPath = resolve(process.cwd());
   const apiDirCopyPath = join(strapiAppPath, "api-copy");
   await fs.copy(join(strapiAppPath, "api"), apiDirCopyPath);
