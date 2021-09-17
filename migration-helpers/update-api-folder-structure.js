@@ -13,7 +13,7 @@ const normalizeName = _.kebabCase;
 
 /**
  * @description Migrates settings.json to schema.json
- * 
+ *
  * @param {string} apiPath Path to the current api
  * @param {string} contentTypeName Name of the current contentType
  */
@@ -23,7 +23,12 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
     "models",
     `${contentTypeName}.settings.json`
   );
+
   const exists = await fs.exists(settingsJsonPath);
+  if (!exists) {
+    console.error(`error: ${contentTypeName}.settings.json does not exist`);
+    return;
+  }
 
   const v4SchemaJsonPath = join(
     apiPath,
@@ -31,10 +36,6 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
     contentTypeName,
     "schema.json"
   );
-
-  if (!exists) {
-    console.error(`error: ${contentTypeName}.settings.json does not exist`);
-  }
 
   try {
     // Read the settings.json file
@@ -74,25 +75,20 @@ const updateContentTypes = async (apiPath) => {
     await fs.remove(join(apiPath, "models"));
   }
 
-  if (allModelFiles.length > 1) {
-    for (const model of allModelFiles) {
-      const [contentTypeName] = model.name.split(".");
-      await convertModelToContentType(apiPath, contentTypeName);
-    }
-  } else {
-    // skip the loop there is only 1
-    const [contentTypeName] = allModelFiles[0].name.split(".");
+  for (const model of allModelFiles) {
+    const [contentTypeName] = model.name.split(".");
     await convertModelToContentType(apiPath, contentTypeName);
-    // The last model has been copied, delete the v3 models directory
-    await fs.remove(join(apiPath, "models"));
   }
+
+  // all models have been deleted, remove the directory
+  await fs.remove(join(apiPath, "models"));
 };
 
 /**
  * @description Migrates settings.json to schema.json
- * 
+ *
  * @param {string} apiPath Path to the current api
- * @param {string} apiName Name of the API 
+ * @param {string} apiName Name of the API
  */
 const updateRoutes = async (apiPath, apiName) => {
   const v3RoutePath = join(apiPath, "config", "routes.json");
@@ -140,30 +136,27 @@ const updateRoutes = async (apiPath, apiName) => {
  */
 const updatePolicies = async (apiPath) => {
   const v3PoliciesPath = join(apiPath, "config", "policies");
+
   const exists = await fs.exists(v3PoliciesPath);
   if (!exists) return;
 
   const v3Policies = await fs.readdir(v3PoliciesPath, { withFileTypes: true });
   const policyFiles = v3Policies.filter((fd) => fd.isFile());
 
-  // The old policy folder is empty, delete it
   if (!policyFiles.length) {
     await fs.remove(v3PoliciesPath);
   }
 
   const v4PoliciesPath = join(apiPath, "policies");
   try {
-    if (policyFiles.length > 1) {
-      for (const policy of policyFiles) {
-        await fs.copy(v3PoliciesPath, join(v4PoliciesPath, policy.name));
-        // Remove the current v3 policy
-        await fs.remove(join(v3PoliciesPath, policy.name));
-      }
-    } else {
-      await fs.copy(v3PoliciesPath, join(v4PoliciesPath, policyFiles[0].name));
-      // The last policy has been copied, delete the v3 policy folder
-      await fs.remove(v3PoliciesPath);
+    for (const policy of policyFiles) {
+      await fs.copy(
+        join(v3PoliciesPath, policy.name),
+        join(v4PoliciesPath, policy.name)
+      );
     }
+    // delete the v3 policy folder
+    await fs.remove(v3PoliciesPath);
   } catch (error) {
     console.error(
       `error: an error occured when migrating a policy from ${v3PoliciesPath} to ${v4PoliciesPath}`
@@ -234,7 +227,10 @@ const updateApiFolderStructure = async () => {
     await updateRoutes(apiPath, apiName);
     await updatePolicies(apiPath);
     // Update services using jscodeshift transform
-    runJsCodeshift(join(apiDirCopyPath, "services"), "use-arrow-function-for-service-export");
+    runJsCodeshift(
+      join(apiDirCopyPath, apiName, "services"),
+      "use-arrow-function-for-service-export"
+    );
   }
 
   console.log(`migrated ${basename(strapiAppPath)}/api to Strapi v4`);
