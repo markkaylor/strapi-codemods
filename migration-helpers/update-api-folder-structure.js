@@ -5,7 +5,7 @@
 const { resolve, join, basename } = require("path");
 const fs = require("fs-extra");
 const _ = require("lodash");
-var pluralize = require("pluralize");
+_.mixin(require("lodash-inflection"));
 const { inspect } = require("util");
 const runJsCodeshift = require("../utils/runJsCodeshift");
 
@@ -43,7 +43,7 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
     const schemaJson = { ...settingsJson };
     const infoUpdate = {
       singularName: contentTypeName,
-      pluralName: pluralize(contentTypeName),
+      pluralName: _.pluralize(contentTypeName),
       displayName: contentTypeName,
       name: contentTypeName,
     };
