@@ -1,4 +1,4 @@
-module.exports = function useNamedExportsForServices(file, api) {
+module.exports = function useArrowFunctionForService(file, api) {
   const j = api.jscodeshift;
   const root = j(file.source);
 
