@@ -4,6 +4,8 @@ const fs = require("fs-extra");
 const { resolve, join } = require("path");
 const j = require("jscodeshift");
 const { camelCase } = require("lodash");
+const convertModelToContentType = require(`./convert-models-to-content-types`);
+const updateRoutes = require(`./update-routes`);
 
 const { statement } = j.template;
 
@@ -45,22 +47,16 @@ async function migratePlugin(v3PluginPath, v4DestinationPath) {
     for (const directory of SERVER_DIRECTORIES) {
       await moveToServer(v4Plugin, ".", directory);
       // Create index file for directory
-      await createDirectoryIndex(join(v4Plugin, "src", "server", directory));
+      await createDirectoryIndex(join(v4Plugin, "server", directory));
     }
 
     // Move bootstrap to /src/server/bootstrap.js
     await moveBootstrapFunction(v4Plugin);
-    // Move routes to /src/server/routes.js
-    await moveToServer(v4Plugin, "config", "routes.json");
+    // Move routes
+    await updateRoutes(v4Plugin, "index");
+    await moveToServer(v4Plugin, ".", "routes")
     // Create src/server index
-    await createServerIndex(join(v4Plugin, "src", "server"));
-    // Move admin files to /src
-    await fs.move(
-      join(v4Plugin, "admin", "src"),
-      join(v4Plugin, "src", "admin")
-    );
-    // Remove old empty admin folder
-    await fs.remove(join(v4Plugin, "admin"));
+    await createServerIndex(join(v4Plugin, "server"));
     console.log(`finished migrating v3 plugin to v4 at ${v4Plugin}`);
   } catch (error) {
     console.error(error.message);
@@ -78,15 +74,19 @@ async function moveBootstrapFunction(pluginPath) {
   }
 }
 
-async function moveToServer(v4Plugin, originDir, destination) {
-  const exists = await fs.pathExists(join(v4Plugin, originDir, destination));
+async function moveToServer(v4Plugin, originDir, serverDir) {
+  const exists = await fs.pathExists(join(v4Plugin, originDir, serverDir));
   if (!exists) return;
 
-  const origin = join(v4Plugin, originDir, destination);
-  const dest = join(v4Plugin, "src", "server", destination);
+  const origin = join(v4Plugin, originDir, serverDir);
+  const destination = join(v4Plugin, "server", serverDir);
+  await fs.move(origin, destination);
 
-  await fs.move(origin, dest);
-  console.log(`moved ${destination} to `, dest);
+  if (serverDir === "models") {
+    convertModelToContentType(join(v4Plugin, "server"));
+  }
+
+  console.log(`moved ${serverDir} to `, destination);
 }
 
 async function createServerIndex(serverDir) {
@@ -103,14 +103,14 @@ async function createServerIndex(serverDir) {
 async function createDirectoryIndex(dir) {
   const hasDir = await fs.pathExists(dir);
   if (!hasDir) return;
-  
+
   const dirContent = await fs.readdir(dir);
   const indexPath = join(dir, "index.js");
 
   await fs.copy(join(__dirname, "..", "utils", "module-exports.js"), indexPath);
 
   const filesToImport = dirContent.filter((file) => file.includes(".js"));
-  
+
   await importFilesToIndex(indexPath, filesToImport);
   await addModulesToExport(indexPath, filesToImport);
 }
