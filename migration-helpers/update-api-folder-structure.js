@@ -5,7 +5,7 @@
 const { resolve, join, basename } = require("path");
 const fs = require("fs-extra");
 const _ = require("lodash");
-_.mixin(require("lodash-inflection"));
+const pluralize = require("pluralize")
 const { inspect } = require("util");
 const runJsCodeshift = require("../utils/runJsCodeshift");
 
@@ -43,9 +43,9 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
     // Create a copy
     const schemaJson = { ...settingsJson };
     const infoUpdate = {
-      singularName: contentTypeName,
-      pluralName: _.pluralize(contentTypeName),
-      displayName: contentTypeName,
+      singularName: pluralize.singular(contentTypeName),
+      pluralName: pluralize(contentTypeName),
+      displayName: _.upperFirst(contentTypeName),
       name: contentTypeName,
     };
     // Modify the JSON
@@ -63,6 +63,10 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
   }
 };
 
+/**
+ * 
+ * @param {string} apiPath Path to the current API
+ */
 const updateContentTypes = async (apiPath) => {
   const allModels = await fs.readdir(join(apiPath, "models"), {
     withFileTypes: true,
@@ -166,12 +170,12 @@ const updatePolicies = async (apiPath) => {
 
 /**
  *
- * @description Recursively cleans a directory
+ * @description Recursively removes empty directories
  *
  * @param {array} dirs Directory entries
- * @param {string} baseDir The path to the directory to clean
+ * @param {string} baseDir The path to check for empty directories
  */
-const clean = async (dirs, baseDir) => {
+const cleanEmptyDirectories = async (dirs, baseDir) => {
   for (dir of dirs) {
     try {
       const currentDirPath = join(baseDir, dir.name);
@@ -183,7 +187,7 @@ const clean = async (dirs, baseDir) => {
       } else {
         // Otherwise get the directories of the current directory
         const currentDirs = await getDirsAtPath(currentDirPath);
-        await clean(currentDirs, currentDirPath);
+        await cleanEmptyDirectories(currentDirs, currentDirPath);
       }
     } catch (error) {
       console.error("error: failed to remove empty directories");
@@ -204,18 +208,22 @@ const getDirsAtPath = async (path) => {
 
 const renameApiFolder = async (apiDirCopyPath, strapiAppPath) => {
   try {
+    // Remove the old api folder
     await fs.remove(join(strapiAppPath, "api"));
-    await fs.rename(apiDirCopyPath, "api");
+    // Rename the api-copy folder api
+    await fs.rename(apiDirCopyPath, join(strapiAppPath, "src", "api"));
   } catch (error) {
     console.error(
       `error: failed to rename the api folder, check: ${apiDirCopyPath}`
     );
+    console.error(error.message);
   }
 };
 
-const updateApiFolderStructure = async () => {
-  const strapiAppPath = resolve(process.cwd());
-  const apiDirCopyPath = join(strapiAppPath, "api-copy");
+const updateApiFolderStructure = async (appPath) => {
+  const strapiAppPath = resolve(appPath);
+  const apiDirCopyPath = join(strapiAppPath, "src", "api-copy");
+
   try {
     await fs.copy(join(strapiAppPath, "api"), apiDirCopyPath);
   } catch (error) {
@@ -244,11 +252,30 @@ const updateApiFolderStructure = async () => {
 
   console.log(`migrated ${basename(strapiAppPath)}/api to Strapi v4`);
   console.log(`to see changes: Run "git add . && git diff --cached"`);
-  console.log('to revert: "git reset HEAD --hard && git clean -fd"');
+  console.log('to revert: "git reset HEAD --hard && git cleanEmptyDirectories -fd"');
   console.log('to accept: "git commit -am "migrate API to v4 structure""');
 
-  await clean(apiDirs, apiDirCopyPath);
+  await cleanEmptyDirectories(apiDirs, apiDirCopyPath);
   await renameApiFolder(apiDirCopyPath, strapiAppPath);
 };
 
-updateApiFolderStructure();
+const args = process.argv.slice(2);
+
+try {
+  if (args.length === 0) {
+    throw Error(
+      "No argument provided, please provide the path to your Strapi app"
+    );
+  }
+
+  if (args.length > 1) {
+    throw Error(
+      "Too many arguments, please only provide the path to your Strapi app"
+    );
+  }
+
+  const [appPath] = args;
+  updateApiFolderStructure(appPath);
+} catch (error) {
+  console.error(error.message);
+}
