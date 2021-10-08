@@ -3,19 +3,13 @@
 const fs = require("fs-extra");
 const { resolve, join } = require("path");
 const j = require("jscodeshift");
-const { camelCase } = require("lodash");
+const { camelCase, findIndex } = require("lodash");
 const convertModelToContentType = require(`./convert-models-to-content-types`);
 const updateRoutes = require(`./update-routes`);
 
 const { statement } = j.template;
 
-const SERVER_DIRECTORIES = [
-  "controllers",
-  "models",
-  "middlewares",
-  "services",
-  "hooks",
-];
+const SERVER_DIRECTORIES = ["controllers", "models", "middlewares", "services"];
 
 async function migratePlugin(v3PluginPath, v4DestinationPath) {
   const v4Plugin = v4DestinationPath
@@ -38,23 +32,32 @@ async function migratePlugin(v3PluginPath, v4DestinationPath) {
     await fs.copy("./utils/strapi-admin.js", strapiAdmin);
     console.log(`created ${strapiAdmin}`);
 
-    //Create root strapi-server
+    // Create root strapi-server
     const strapiServer = join(v4Plugin, `strapi-server.js`);
     await fs.copy("./utils/strapi-server.js", strapiServer);
     console.log(`created ${strapiServer}`);
 
-    // Move all server files to /src/server
+    // Move all server files to /server
     for (const directory of SERVER_DIRECTORIES) {
       await moveToServer(v4Plugin, ".", directory);
-      // Create index file for directory
-      await createDirectoryIndex(join(v4Plugin, "server", directory));
+
+      if (directory === "models") {
+        await convertModelToContentType(join(v4Plugin, "server"));
+        await createContentTypeIndex(join(v4Plugin, "server", "content-types"));
+      } else {
+        // Create index file for directory
+        await createDirectoryIndex(join(v4Plugin, "server", directory));
+      }
     }
 
-    // Move bootstrap to /src/server/bootstrap.js
+    // Move bootstrap to /server/bootstrap.js
     await moveBootstrapFunction(v4Plugin);
     // Move routes
     await updateRoutes(v4Plugin, "index");
-    await moveToServer(v4Plugin, ".", "routes")
+    await moveToServer(v4Plugin, ".", "routes");
+    // Move policies
+    await moveToServer(v4Plugin, "config", "policies");
+    await createDirectoryIndex(join(v4Plugin, "server", "policies"));
     // Create src/server index
     await createServerIndex(join(v4Plugin, "server"));
     console.log(`finished migrating v3 plugin to v4 at ${v4Plugin}`);
@@ -82,10 +85,6 @@ async function moveToServer(v4Plugin, originDir, serverDir) {
   const destination = join(v4Plugin, "server", serverDir);
   await fs.move(origin, destination);
 
-  if (serverDir === "models") {
-    convertModelToContentType(join(v4Plugin, "server"));
-  }
-
   console.log(`moved ${serverDir} to `, destination);
 }
 
@@ -100,16 +99,34 @@ async function createServerIndex(serverDir) {
   await addModulesToExport(indexPath, filesToImport);
 }
 
+async function createContentTypeIndex(dir) {
+  const hasDir = await fs.pathExists(dir);
+  if (!hasDir) return;
+
+  const indexPath = join(dir, "index.js");
+
+  await fs.copy(join(__dirname, "..", "utils", "module-exports.js"), indexPath);
+  const dirContent = await fs.readdir(dir);
+  const filesToImport = dirContent
+    .filter((file) => file !== "index.js")
+    .map((file) => `${file}/schema`);
+
+  await importFilesToIndex(indexPath, filesToImport);
+  await addModulesToExport(indexPath, filesToImport);
+}
+
 async function createDirectoryIndex(dir) {
   const hasDir = await fs.pathExists(dir);
   if (!hasDir) return;
 
-  const dirContent = await fs.readdir(dir);
   const indexPath = join(dir, "index.js");
 
   await fs.copy(join(__dirname, "..", "utils", "module-exports.js"), indexPath);
 
-  const filesToImport = dirContent.filter((file) => file.includes(".js"));
+  const dirContent = await fs.readdir(dir, { withFileTypes: true });
+  const filesToImport = dirContent
+    .filter((fd) => fd.isFile() && fd.name !== "index.js")
+    .map((file) => file.name);
 
   await importFilesToIndex(indexPath, filesToImport);
   await addModulesToExport(indexPath, filesToImport);
