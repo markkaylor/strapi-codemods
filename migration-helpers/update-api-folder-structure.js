@@ -5,7 +5,6 @@
 const { resolve, join, basename } = require("path");
 const fs = require("fs-extra");
 const _ = require("lodash");
-const { inspect } = require("util");
 const runJsCodeshift = require("../utils/runJsCodeshift");
 
 const normalizeName = _.kebabCase;

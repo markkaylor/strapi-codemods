@@ -3,7 +3,7 @@
 const fs = require("fs-extra");
 const { resolve, join } = require("path");
 const j = require("jscodeshift");
-const { camelCase, findIndex } = require("lodash");
+const { camelCase } = require("lodash");
 const convertModelToContentType = require(`./convert-models-to-content-types`);
 const updateRoutes = require(`./update-routes`);
 const runJsCodeshift = require('../utils/runJsCodeshift')
