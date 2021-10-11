@@ -5,7 +5,7 @@
 const { join } = require("path");
 const fs = require("fs-extra");
 const _ = require("lodash");
-_.mixin(require("lodash-inflection"));
+const pluralize = require("pluralize")
 
 /**
  * @description Migrates settings.json to schema.json
@@ -29,7 +29,7 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
   const v4SchemaJsonPath = join(
     apiPath,
     "content-types",
-    contentTypeName.toLowerCase(),
+    contentTypeName,
     "schema.json"
   );
 
@@ -39,9 +39,9 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
     // Create a copy
     const schemaJson = { ...settingsJson };
     const infoUpdate = {
-      singularName: contentTypeName,
-      pluralName: _.pluralize(contentTypeName),
-      displayName: contentTypeName,
+      singularName: pluralize.singular(contentTypeName),
+      pluralName: pluralize(contentTypeName),
+      displayName: _.upperFirst(contentTypeName),
       name: contentTypeName,
     };
     // Modify the JSON
@@ -59,6 +59,10 @@ const convertModelToContentType = async (apiPath, contentTypeName) => {
   }
 };
 
+/**
+ *
+ * @param {string} apiPath Path to the current API
+ */
 const updateContentTypes = async (apiPath) => {
   const allModels = await fs.readdir(join(apiPath, "models"), {
     withFileTypes: true,
@@ -80,4 +84,4 @@ const updateContentTypes = async (apiPath) => {
   await fs.remove(join(apiPath, "models"));
 };
 
-module.exports = updateContentTypes
+module.exports = updateContentTypes;

@@ -1,7 +1,5 @@
-const {join } = require("path");
+const { join } = require("path");
 const fs = require("fs-extra");
-const _ = require("lodash");
-_.mixin(require("lodash-inflection"));
 const { inspect } = require("util");
 
 /**

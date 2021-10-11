@@ -6,6 +6,7 @@ const j = require("jscodeshift");
 const { camelCase, findIndex } = require("lodash");
 const convertModelToContentType = require(`./convert-models-to-content-types`);
 const updateRoutes = require(`./update-routes`);
+const runJsCodeshift = require('../utils/runJsCodeshift')
 
 const { statement } = j.template;
 
@@ -58,6 +59,11 @@ async function migratePlugin(v3PluginPath, v4DestinationPath) {
     // Move policies
     await moveToServer(v4Plugin, "config", "policies");
     await createDirectoryIndex(join(v4Plugin, "server", "policies"));
+    // update services
+    runJsCodeshift(
+      join(v4Plugin, 'server', "services"),
+      "use-arrow-function-for-service-export"
+    );
     // Create src/server index
     await createServerIndex(join(v4Plugin, "server"));
     console.log(`finished migrating v3 plugin to v4 at ${v4Plugin}`);
